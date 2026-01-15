@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Killer Pool</title>
+
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #111;
+    color: #fff;
+    text-align: center;
+    padding: 16px;
+    margin: 0;
+  }
+
+  input, button {
+    width: 90%;
+    max-width: 280px;
+    padding: 12px;
+    margin: 6px 0;
+    font-size: 18px;
+    border-radius: 8px;
+    border: none;
+  }
+
+  button { font-weight: bold; cursor: pointer; }
+
+  .secondary { background: #3498db; }
+  .play { background: #2ecc71; }
+  .miss { background: #e67e22; }
+  .pot { background: #1abc9c; }
+  .black { background: #e74c3c; color: #fff; }
+
+  .player {
+    margin: 10px 0;
+    font-size: 22px;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: deal 0.5s ease forwards;
+  }
+
+  @keyframes deal { to { opacity: 1; transform: translateY(0); } }
+
+  .cardBig { font-size: 56px; margin: 10px 0 2px; }
+  .nameBig { font-size: 28px; margin: 6px 0 12px; }
+
+  .section { max-width: 520px; margin: 0 auto; }
+
+  /* Ref UI */
+  #refBtn {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    padding: 10px 12px;
+    border-radius: 999px;
+    background: #444;
+    color: #fff;
+    font-size: 16px;
+    display: none;
+    z-index: 1000;
+  }
+
+  #refOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.95);
+    color: #fff;
+    padding: 18px;
+    z-index: 2000;
+  }
+
+  #refPanel {
+    max-width: 520px;
+    margin: 0 auto;
+  }
+
+  #refList {
+    margin-top: 14px;
+    font-size: 18px;
+    line-height: 1.7;
+    text-align: left;
+  }
+
+  .pill {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #222;
+    margin-left: 8px;
+    font-size: 14px;
+  }
+</style>
+</head>
+
+<body>
+<button id="refBtn" onclick="toggleRef()">🧑‍⚖️ Ref</button>
+
+<div class="section">
+  <h1>🎱 Killer Pool</h1>
+
+  <!-- SETUP -->
+  <div id="setup">
+    <div id="playerList"></div>
+    <button class="secondary" onclick="addPlayer()">➕ Add Player</button>
+    <button onclick="drawCards()">🎴 Draw Cards</button>
+    <div id="results"></div>
+    <button id="startBtn" class="play" onclick="startGame()" style="display:none;">
+      ▶️ Play Game
+    </button>
+  </div>
+
+  <!-- GAME -->
+  <div id="game" style="display:none;">
+    <div id="currentCard" class="cardBig"></div>
+    <div id="currentName" class="nameBig"></div>
+
+    <button class="miss" onclick="doAction('miss')">❌ Miss</button>
+    <button class="pot" onclick="doAction('pot')">🎯 Pot</button>
+    <button class="black" onclick="doAction('black')">⚫ Black Ball</button>
+  </div>
+</div>
+
+<!-- REF OVERLAY -->
+<div id="refOverlay" onclick="toggleRef()">
+  <div id="refPanel" onclick="event.stopPropagation()">
+    <h2>🧑‍⚖️ Ref Mode</h2>
+    <div id="refList"></div>
+    <button onclick="toggleRef()">Close</button>
+  </div>
+</div>
+
+<script>
+const baseDeck = ["A","K","Q","J","10","9","8","7","6","5","4","3","2"];
+let players = [];
+let activePlayers = [];
+let currentIdx = null;
+
+function shuffleDeck() {
+  let deck = [...baseDeck];
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
+}
+
+function addPlayer() {
+  if (document.querySelectorAll("#playerList input").length >= 13) return;
+  const input = document.createElement("input");
+  input.placeholder = "Player name";
+  document.getElementById("playerList").appendChild(input);
+}
+
+function drawCards() {
+  players = [];
+  const deck = shuffleDeck();
+  const results = document.getElementById("results");
+  results.innerHTML = "<h2>Dealing Cards…</h2>";
+
+  const names = [...document.querySelectorAll("#playerList input")]
+    .map(i => i.value.trim())
+    .filter(Boolean);
+
+  let delay = 0;
+  names.forEach(name => {
+    const card = deck.pop();
+    players.push({ name, card, lives: 3 });
+
+    setTimeout(() => {
+      const div = document.createElement("div");
+      div.className = "player";
+      div.textContent = `${name} — ${card}`;
+      results.appendChild(div);
+    }, delay);
+
+    delay += 350;
+  });
+
+  setTimeout(() => {
+    document.getElementById("startBtn").style.display = "inline-block";
+  }, delay + 150);
+}
+
+function startGame() {
+  activePlayers = players.map((_, i) => i);
+  document.getElementById("setup").style.display = "none";
+  document.getElementById("game").style.display = "block";
+  document.getElementById("refBtn").style.display = "inline-block";
+  nextShooter();
+}
+
+function nextShooter() {
+  if (activePlayers.length === 0) {
+    document.getElementById("currentName").textContent = "Game Over";
+    document.getElementById("currentCard").textContent = "";
+    return;
+  }
+  currentIdx = activePlayers[Math.floor(Math.random() * activePlayers.length)];
+  document.getElementById("currentName").textContent = players[currentIdx].name;
+  document.getElementById("currentCard").textContent = players[currentIdx].card;
+  refreshRefList();
+}
+
+function doAction(type) {
+  const p = players[currentIdx];
+  if (type === "miss") {
+    p.lives--;
+    if (p.lives <= 0) {
+      activePlayers = activePlayers.filter(i => i !== currentIdx);
+    }
+  }
+  if (type === "black") p.lives++;
+  nextShooter();
+}
+
+/* Ref Mode */
+function toggleRef() {
+  const o = document.getElementById("refOverlay");
+  o.style.display = o.style.display === "block" ? "none" : "block";
+  refreshRefList();
+}
+
+function refreshRefList() {
+  const active = new Set(activePlayers);
+  document.getElementById("refList").innerHTML = players.map((p,i)=>
+    `${p.name} — ${p.card} — ${p.lives} lives <span class="pill">${active.has(i)?"IN":"OUT"}</span>`
+  ).join("<br>");
+}
+
+addPlayer();
+addPlayer();
+</script>
+</body>
+</html>
